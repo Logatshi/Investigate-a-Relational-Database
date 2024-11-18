@@ -1,0 +1,72 @@
+/* How does rental duration vary for each film category? */
+WITH family_friendly
+AS
+(SELECT
+    c.name
+   ,f.rental_duration
+   ,NTILE(4) OVER (ORDER BY f.rental_duration) AS standard_quartile
+  FROM film f
+  JOIN film_category fc
+    ON f.film_id = fc.film_id
+  JOIN category c
+    ON c.category_id = fc.category_id
+  WHERE c.name IN ('Animation', 'Children', 'Classics', 'Comedy', 'Family', 'Music'))
+SELECT
+  name
+ ,standard_quartile
+ ,COUNT(*) AS count
+FROM family_friendly
+GROUP BY name
+        ,standard_quartile
+ORDER BY name,
+standard_quartile;
+/* Which movie genre is most favored by families? */
+
+SELECT
+  f.title AS film_title
+ ,c.name AS category_name
+ ,COUNT(r.rental_date) AS rental_count
+FROM film f
+JOIN film_category fc
+  ON f.film_id = fc.film_id
+JOIN category c
+  ON c.category_id = fc.category_id
+JOIN inventory i
+  ON i.film_id = f.film_id
+JOIN rental r
+  ON r.inventory_id = i.inventory_id
+WHERE c.name IN ('Animation', 'Children', 'Classics', 'Comedy', 'Family', 'Music')
+GROUP BY f.title
+        ,c.name
+ORDER BY c.name;
+
+/* Rental Statistics by Store  */
+SELECT
+  EXTRACT(MONTH FROM rental.rental_date) AS rental_month,
+  EXTRACT(YEAR FROM rental.rental_date) AS rental_year,
+  store.store_id,
+  COUNT(rental.rental_id) AS count_rentals
+FROM rental
+JOIN staff ON rental.staff_id = staff.staff_id
+JOIN store ON staff.store_id = store.store_id
+GROUP BY rental_month, rental_year, store.store_id
+ORDER BY count_rentals DESC;
+
+
+/* What is the average customer rental duration by film category ? */
+SELECT ct.name AS film_category, 
+	   AVG(DATE_TRUNC('day',return_date)-DATE_TRUNC('day',rental_date)) AS avg_customer_rental_duration,
+	   EXTRACT(epoch FROM AVG(DATE_TRUNC('day',return_date)-DATE_TRUNC('day',rental_date))/86400) AS avg_customer_rental_duration_decimal
+FROM customer c
+JOIN rental r
+ON c.customer_id = r.customer_id
+JOIN inventory i
+ON i.inventory_id = r.inventory_id
+JOIN film f
+ON f.film_id = i.film_id
+JOIN film_category fc
+ON f.film_id = fc.film_id
+JOIN category ct
+ON ct.category_id = fc.category_id
+GROUP BY 1
+ORDER BY 2 DESC
